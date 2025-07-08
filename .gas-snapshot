@@ -1,0 +1,3 @@
+VotingTest:test_addVoteSession_Revert_EmptyTitle() (gas: 27507)
+VotingTest:test_addVoteSession_Revert_InvalidTimes() (gas: 42735)
+VotingTest:test_addVoteSession_Success() (gas: 475468)

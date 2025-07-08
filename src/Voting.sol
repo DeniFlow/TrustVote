@@ -69,9 +69,11 @@ contract Voting {
         string[] winners;
     }
 
+    uint256 public constant MAX_COUNT_CHOICES = 4;
     uint256 public countVoteSessions;
     mapping(uint256 => VoteSession) public voteSessions;
-    uint256 public constant MAX_COUNT_CHOICES = 4;
+    mapping(address => uint256[]) public votingCreatedByAddress;
+    mapping(address => uint256[]) public votingParticipatedByAddress;
 
     function addVoteSession(
         string calldata _title,
@@ -118,6 +120,8 @@ contract Voting {
             voteSession.choices.push(Choice(_choices[i], 0));
         }
         voteSession.status = StatusVoteSession.Created;
+
+        votingCreatedByAddress[msg.sender].push(voteSession.id);
         emit VoteSessionCreated(voteSession.id, voteSession.title, voteSession.startTime, voteSession.endTime);
     }
 
@@ -158,6 +162,8 @@ contract Voting {
         voteSession.tempNumberVotes++;
         voteSession.voters[msg.sender].choice = voteSession.choices[_indChoice].title;
 
+        votingParticipatedByAddress[msg.sender].push(voteSession.id);
+
         emit Voted(_voteSessionId, msg.sender, voteSession.voters[msg.sender].choice);
     }
 
@@ -191,5 +197,15 @@ contract Voting {
         }
 
         emit VoteSessionEnded(_voteSessionId, voteSession.tempNumberVotes, voteSession.status, voteSession.winners);
+    }
+
+    function getVotingCreatedByAddress(address _voter) public view returns (uint256[] memory) {
+        if (_voter == address(0)) revert VoterAddressCantBeZero();
+        return votingCreatedByAddress[_voter];
+    }
+
+    function getVotingParticipatedByAddress(address _voter) public view returns (uint256[] memory) {
+        if (_voter == address(0)) revert VoterAddressCantBeZero();
+        return votingParticipatedByAddress[_voter];
     }
 }
