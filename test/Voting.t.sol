@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Test,console} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {Voting} from "../src/Voting.sol";
 
 contract VotingTest is Test {
@@ -24,8 +24,8 @@ contract VotingTest is Test {
         uint256 endTime = startTime + 1 days;
 
         Voting.Voter[] memory voters = new Voting.Voter[](2);
-        voters[0] = Voting.Voter(voter1,false,"", Voting.VoteAccess.Yes);
-        voters[1] = Voting.Voter(voter2,false,"", Voting.VoteAccess.Yes);
+        voters[0] = Voting.Voter(voter1, false, "", Voting.VoteAccess.Yes);
+        voters[1] = Voting.Voter(voter2, false, "", Voting.VoteAccess.Yes);
 
         string[] memory choices = new string[](2);
         choices[0] = "Choice 1";
@@ -36,20 +36,12 @@ contract VotingTest is Test {
         vm.expectEmit(true, true, true, true);
         emit Voting.VoteSessionCreated(sessionId, "Test Vote", startTime, endTime);
 
-        voting.addVoteSession(
-            "Test Vote",
-            "Description",
-            startTime,
-            endTime,
-            10,
-            true,
-            voters,
-            choices
-        );
+        voting.addVoteSession("Test Vote", "Description", startTime, endTime, 10, true, voters, choices);
 
         // Проверка, что голосование создано
         assertEq(voting.countVoteSessions(), 1);
-        (uint256 id,address creatorAddr,string memory title,,uint256 _startTime,uint256 _endTime,,,bool isPrivate,) = voting.voteSessions(1);
+        (uint256 id, address creatorAddr, string memory title,, uint256 _startTime, uint256 _endTime,,, bool isPrivate,)
+        = voting.voteSessions(1);
 
         assertEq(id, 1);
         assertEq(creatorAddr, creator);
@@ -70,26 +62,16 @@ contract VotingTest is Test {
         uint256 endTime = startTime + 1 days;
 
         Voting.Voter[] memory voters = new Voting.Voter[](2);
-        voters[0] = Voting.Voter(voter1,false,"", Voting.VoteAccess.Yes);
-        voters[1] = Voting.Voter(voter2,false,"", Voting.VoteAccess.Yes);
+        voters[0] = Voting.Voter(voter1, false, "", Voting.VoteAccess.Yes);
+        voters[1] = Voting.Voter(voter2, false, "", Voting.VoteAccess.Yes);
 
         string[] memory choices = new string[](2);
         choices[0] = "Choice 1";
         choices[1] = "Choice 2";
 
-
         vm.expectRevert(Voting.NameVoteSessionCantBeEmpty.selector);
 
-        voting.addVoteSession(
-            "",
-            "Description",
-            startTime,
-            endTime,
-            10,
-            true,
-            voters,
-            choices
-        );
+        voting.addVoteSession("", "Description", startTime, endTime, 10, true, voters, choices);
     }
 
     function test_addVoteSession_Revert_InvalidTimes() public {
@@ -97,8 +79,8 @@ contract VotingTest is Test {
         console.log("Timestamp:", block.timestamp);
 
         Voting.Voter[] memory voters = new Voting.Voter[](2);
-        voters[0] = Voting.Voter(voter1,false,"", Voting.VoteAccess.Yes);
-        voters[1] = Voting.Voter(voter2,false,"", Voting.VoteAccess.Yes);
+        voters[0] = Voting.Voter(voter1, false, "", Voting.VoteAccess.Yes);
+        voters[1] = Voting.Voter(voter2, false, "", Voting.VoteAccess.Yes);
 
         string[] memory choices = new string[](2);
         choices[0] = "Choice 1";
@@ -109,33 +91,13 @@ contract VotingTest is Test {
 
         vm.expectRevert(Voting.StartTimeLessTimestamp.selector);
 
-        voting.addVoteSession(
-            "Test",
-            "Description",
-            startTime,
-            endTime,
-            10,
-            true,
-            voters,
-            choices
-        );
+        voting.addVoteSession("Test", "Description", startTime, endTime, 10, true, voters, choices);
 
         startTime = block.timestamp + 20;
         endTime = block.timestamp + 10;
 
         vm.expectRevert(Voting.StartTimeMoreOrEqualEndTime.selector);
 
-        voting.addVoteSession(
-            "Test",
-            "Description",
-            startTime,
-            endTime,
-            10,
-            true,
-            voters,
-            choices
-        );
-
+        voting.addVoteSession("Test", "Description", startTime, endTime, 10, true, voters, choices);
     }
-
 }

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 contract Voting {
+
     error NameVoteSessionCantBeEmpty();
     error StartTimeMoreOrEqualEndTime();
     error StartTimeLessTimestamp();
