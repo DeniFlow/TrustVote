@@ -75,9 +75,9 @@ contract TokenDistributorForStakers is Ownable {
         }
         uint256 amountTokensToClaim = stakers[msg.sender].amount / MONEY_COFFICIENT
             + (block.timestamp - stakers[msg.sender].timestampLastClaim) / COOLDOWN;
-
         if (amountTokensToClaim < tokenOut.decimals()) revert NotEnoughToClaim(tokenOut.decimals(),amountTokensToClaim);
         if (tokenOut.balanceOf(address(this)) < amountTokensToClaim) revert NotEnoughBalanceOnContract();
+        stakers[msg.sender].timestampLastClaim = block.timestamp;
         bool success = tokenOut.transfer(msg.sender,amountTokensToClaim);
         if (!success) revert TransferFailed();
         return true;
