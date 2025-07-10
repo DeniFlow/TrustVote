@@ -4,8 +4,7 @@ pragma solidity ^0.8.30;
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
-contract Voting is Ownable{
-
+contract Voting is Ownable {
     error NameVoteSessionCantBeEmpty();
     error StartTimeMoreOrEqualEndTime();
     error StartTimeLessTimestamp();
@@ -82,7 +81,9 @@ contract Voting is Ownable{
     uint256 public addVotingTokenCost;
     uint256 public voteTokenCost;
 
-    constructor(address _token, address _stakeManagerContract, uint256 _addVotingTokenCost, uint256 _voteTokenCost) Ownable(msg.sender) {
+    constructor(address _token, address _stakeManagerContract, uint256 _addVotingTokenCost, uint256 _voteTokenCost)
+        Ownable(msg.sender)
+    {
         if (_token == address(0)) revert TokenAddressCantBeZero();
         if (_stakeManagerContract == address(0)) revert StakeManagerContractCantBeZero();
         token = IERC20(_token);
@@ -100,7 +101,7 @@ contract Voting is Ownable{
         bool _isPrivate,
         Voter[] memory _voters,
         string[] calldata _choices
-    ) external {
+    ) external returns (uint256, address) {
         if (bytes(_title).length == 0) revert NameVoteSessionCantBeEmpty();
         if (_startTime >= _endTime) revert StartTimeMoreOrEqualEndTime();
         if (_startTime < block.timestamp) revert StartTimeLessTimestamp();
@@ -114,8 +115,7 @@ contract Voting is Ownable{
                 }
                 _voters[i].canVote = VoteAccess.Yes;
             }
-        }
-        else{
+        } else {
             if (token.balanceOf(msg.sender) < addVotingTokenCost) {
                 revert NotEnoungTokensToAddVoting(token.balanceOf(msg.sender), addVotingTokenCost);
             }
@@ -142,13 +142,12 @@ contract Voting is Ownable{
         }
         voteSession.status = StatusVoteSession.Created;
         if (!_isPrivate) {
-            bool success = token.transfer(stakeManagerContract,addVotingTokenCost);
+            bool success = token.transfer(stakeManagerContract, addVotingTokenCost);
             if (!success) revert TransferFailed();
         }
-
-
         votingCreatedByAddress[msg.sender].push(voteSession.id);
         emit VoteSessionCreated(voteSession.id, voteSession.title, voteSession.startTime, voteSession.endTime);
+        return (voteSession.id, voteSession.creatorAddr);
     }
 
     function vote(uint256 _voteSessionId, uint256 _indChoice) external {
@@ -179,8 +178,7 @@ contract Voting is Ownable{
             ) {
                 revert UserNotVoterInThisVoteSession(_voteSessionId);
             }
-        }
-        else{
+        } else {
             if (token.balanceOf(msg.sender) < voteTokenCost) {
                 revert NotEnoungTokensToVote(token.balanceOf(msg.sender), voteTokenCost);
             }
@@ -194,7 +192,7 @@ contract Voting is Ownable{
         voteSession.voters[msg.sender].choice = voteSession.choices[_indChoice].title;
 
         if (!voteSession.isPrivate) {
-            bool success = token.transfer(stakeManagerContract,voteTokenCost);
+            bool success = token.transfer(stakeManagerContract, voteTokenCost);
             if (!success) revert TransferFailed();
         }
 
@@ -253,5 +251,13 @@ contract Voting is Ownable{
         voteTokenCost = _voteTokenCost;
     }
 
+    function setTokenAddress(address _token) external onlyOwner {
+        if (_token == address(0)) revert TokenAddressCantBeZero();
+        token = IERC20(_token);
+    }
 
+    function setStakeManagerContract(address _stakeManagerContract) external onlyOwner {
+        if (_stakeManagerContract == address(0)) revert StakeManagerContractCantBeZero();
+        stakeManagerContract = _stakeManagerContract;
+    }
 }

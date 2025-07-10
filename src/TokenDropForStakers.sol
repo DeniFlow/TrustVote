@@ -32,19 +32,19 @@ contract TokenDistributorForStakers is Ownable {
     ERC20 public tokenOut;
     uint256 public constant MONEY_COFFICIENT = 5 * 10 ** 14;
 
-    modifier initStaker {
+    modifier initStaker() {
         if (stakers[msg.sender].addr == address(0)) {
             stakers[msg.sender].addr = msg.sender;
         }
         _;
     }
 
-    constructor(address _tokenOut) Ownable(msg.sender) {
+    constructor(address _tokenOut, address initialOwner) Ownable(initialOwner) {
         if (_tokenOut == address(0)) revert TokenOutAddressCantBeZero();
         tokenOut = ERC20(_tokenOut);
     }
 
-    function stake() public payable initStaker{
+    function stake() public payable initStaker {
         if (msg.value == 0) revert AmountCantBeZero();
         if (msg.sender.balance < msg.value) revert InsufficientBalance(msg.sender.balance, msg.value);
         stakers[msg.sender].amount += msg.value;
@@ -52,7 +52,7 @@ contract TokenDistributorForStakers is Ownable {
         emit Staked(msg.sender, msg.value, block.timestamp);
     }
 
-    function unstake() public initStaker{
+    function unstake() public initStaker {
         if (stakers[msg.sender].amount == 0) revert AmountStakedTokensEqualZero();
         if (address(this).balance <= stakers[msg.sender].amount) revert NotEnoughBalanceOnContract();
         uint256 amount = stakers[msg.sender].amount;
@@ -62,7 +62,7 @@ contract TokenDistributorForStakers is Ownable {
         emit Unstaked(msg.sender, amount, block.timestamp);
     }
 
-    function getTokens() public initStaker returns  (bool) {
+    function getTokens() public initStaker returns (bool) {
         if (stakers[msg.sender].timestampLastClaim > 0) {
             if (block.timestamp < stakers[msg.sender].timestampLastClaim + COOLDOWN) {
                 revert CooldownClaimNotReached(
@@ -97,5 +97,4 @@ contract TokenDistributorForStakers is Ownable {
     function getStaker() external initStaker returns (address, uint256, uint256) {
         return (stakers[msg.sender].addr, stakers[msg.sender].amount, stakers[msg.sender].timestampLastClaim);
     }
-
 }

@@ -24,7 +24,7 @@ contract TokenDistributorForStakersTest is Test {
         vm.prank(owner);
         token = new MockERC20();
         vm.prank(owner);
-        distributor = new TokenDistributorForStakers(address(token));
+        distributor = new TokenDistributorForStakers(address(token), owner);
         // Fund contract with tokens for claims
         token.mint(address(distributor), 1e24);
         // Fund staker and contract with ETH
