@@ -142,8 +142,10 @@ contract Voting is Ownable {
         }
         voteSession.status = StatusVoteSession.Created;
         if (!_isPrivate) {
-            bool success = token.transfer(stakeManagerContract, addVotingTokenCost);
-            if (!success) revert TransferFailed();
+            if (addVotingTokenCost > 0) {
+                bool success = token.transfer(stakeManagerContract, addVotingTokenCost);
+                if (!success) revert TransferFailed();
+            }
         }
         votingCreatedByAddress[msg.sender].push(voteSession.id);
         emit VoteSessionCreated(voteSession.id, voteSession.title, voteSession.startTime, voteSession.endTime);
@@ -161,6 +163,12 @@ contract Voting is Ownable {
         }
         if (block.timestamp < voteSession.startTime) {
             revert VoteSessionNotStarted(_voteSessionId, voteSession.startTime, block.timestamp);
+        }
+        if (
+            block.timestamp > voteSession.endTime
+                && (voteSession.status == StatusVoteSession.Active || voteSession.status == StatusVoteSession.Created)
+        ) {
+            endVoteSession(_voteSessionId);
         }
         if (
             block.timestamp > voteSession.endTime || voteSession.status == StatusVoteSession.Ended
@@ -192,8 +200,10 @@ contract Voting is Ownable {
         voteSession.voters[msg.sender].choice = voteSession.choices[_indChoice].title;
 
         if (!voteSession.isPrivate) {
-            bool success = token.transfer(stakeManagerContract, voteTokenCost);
-            if (!success) revert TransferFailed();
+            if (voteTokenCost > 0) {
+                bool success = token.transfer(stakeManagerContract, voteTokenCost);
+                if (!success) revert TransferFailed();
+            }
         }
 
         votingParticipatedByAddress[msg.sender].push(voteSession.id);
