@@ -44,7 +44,7 @@ contract TokenDistributorForStakersTest is Test {
         emit TokenDistributorForStakers.Staked(staker, 1 ether, block.timestamp);
         distributor.stake{value: 1 ether}();
         vm.prank(staker);
-        (address adr, uint256 amt, uint256 timestamp) = distributor.getStaker();
+        (, uint256 amt,) = distributor.getStaker();
         assertEq(amt, 1 ether);
     }
 
@@ -75,7 +75,7 @@ contract TokenDistributorForStakersTest is Test {
         distributor.unstake();
         assertEq(address(staker).balance, pre + 2 ether);
         vm.prank(staker);
-        (address adr, uint256 amt, uint256 timestamp) = distributor.getStaker();
+        (, uint256 amt,) = distributor.getStaker();
         assertEq(amt, 0);
     }
 
@@ -86,19 +86,16 @@ contract TokenDistributorForStakersTest is Test {
         bool success = distributor.getTokens();
         assertTrue(success);
 
-        (, , uint256 lastClaim) = distributor.getStaker();
+        (,, uint256 lastClaim) = distributor.getStaker();
         uint256 nextClaimTime = lastClaim + distributor.COOLDOWN();
         vm.warp(block.timestamp + 1 days);
         vm.expectRevert(
             abi.encodeWithSelector(
-                TokenDistributorForStakers.CooldownClaimNotReached.selector,
-                nextClaimTime,
-                lastClaim
+                TokenDistributorForStakers.CooldownClaimNotReached.selector, nextClaimTime, lastClaim
             )
         );
         distributor.getTokens();
     }
-
 
     function testGetTokensRevertsWithNothingToClaim() public {
         vm.prank(staker);
@@ -108,7 +105,6 @@ contract TokenDistributorForStakersTest is Test {
         vm.expectRevert(TokenDistributorForStakers.NothingToClaim.selector);
         distributor.getTokens();
     }
-
 
     function testGetTokensSuccess() public {
         // 1 ETH в wei
@@ -145,15 +141,9 @@ contract TokenDistributorForStakersTest is Test {
 
     function testWithdrawOnlyOwnerReverts() public {
         vm.prank(staker);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Ownable.OwnableUnauthorizedAccount.selector,
-                staker
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, staker));
         distributor.withdraw(1 ether);
     }
-
 
     function testWithdrawZeroReverts() public {
         vm.prank(owner);
@@ -168,14 +158,11 @@ contract TokenDistributorForStakersTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                TokenDistributorForStakers.InsufficientBalance.selector,
-                contractBalance,
-                withdrawAmount
+                TokenDistributorForStakers.InsufficientBalance.selector, contractBalance, withdrawAmount
             )
         );
         distributor.withdraw(withdrawAmount);
     }
-
 
     function testWithdrawSuccess() public {
         uint256 pre = address(owner).balance;

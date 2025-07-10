@@ -30,7 +30,7 @@ contract TokenDistributorForStakers is Ownable {
     mapping(address => Staker) stakers;
 
     ERC20 public tokenOut;
-    uint256 public constant MONEY_COFFICIENT = 5 * 10**14;
+    uint256 public constant MONEY_COFFICIENT = 5 * 10 ** 14;
 
     constructor(address _tokenOut) Ownable(msg.sender) {
         if (_tokenOut == address(0)) revert TokenOutAddressCantBeZero();

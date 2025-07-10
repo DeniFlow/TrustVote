@@ -2,8 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {IERC20} from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "node_modules/@openzeppelin/contracts/access/Ownable.sol";
 
-contract Voting {
+contract Voting is Ownable{
 
     error NameVoteSessionCantBeEmpty();
     error StartTimeMoreOrEqualEndTime();
@@ -23,6 +24,9 @@ contract Voting {
     error VoteSessionAlreadyEnded();
     error TokenAddressCantBeZero();
     error StakeManagerContractCantBeZero();
+    error NotEnoungTokensToAddVoting(uint256 balance, uint256 costAddVoting);
+    error NotEnoungTokensToVote(uint256 balance, uint256 costVote);
+    error TransferFailed();
 
     event VoteSessionCreated(uint256 voteSessionId, string name, uint256 startTime, uint256 endTime);
     event Voted(uint256 voteSessionId, address voter, string choice);
@@ -38,12 +42,6 @@ contract Voting {
         Public,
         Yes,
         No
-    }
-    enum VoteChoice {
-        Choice1,
-        Choice2,
-        Choice3,
-        Choice4
     }
 
     struct Choice {
@@ -81,10 +79,10 @@ contract Voting {
     mapping(address => uint256[]) public votingParticipatedByAddress;
     IERC20 public token;
     address public stakeManagerContract;
-    uint256 addVotingTokenCost;
-    uint256 voteTokenCost;
+    uint256 public addVotingTokenCost;
+    uint256 public voteTokenCost;
 
-    constructor(address _token, address _stakeManagerContract, uint256 _addVotingTokenCost, uint256 _voteTokenCost) {
+    constructor(address _token, address _stakeManagerContract, uint256 _addVotingTokenCost, uint256 _voteTokenCost) Ownable(msg.sender) {
         if (_token == address(0)) revert TokenAddressCantBeZero();
         if (_stakeManagerContract == address(0)) revert StakeManagerContractCantBeZero();
         token = IERC20(_token);
@@ -117,6 +115,11 @@ contract Voting {
                 _voters[i].canVote = VoteAccess.Yes;
             }
         }
+        else{
+            if (token.balanceOf(msg.sender) < addVotingTokenCost) {
+                revert NotEnoungTokensToAddVoting(token.balanceOf(msg.sender), addVotingTokenCost);
+            }
+        }
         for (uint256 i = 0; i < _choices.length; i++) {
             if (bytes(_choices[i]).length == 0) revert ChoiceLengthCantBeZero();
         }
@@ -138,6 +141,11 @@ contract Voting {
             voteSession.choices.push(Choice(_choices[i], 0));
         }
         voteSession.status = StatusVoteSession.Created;
+        if (!_isPrivate) {
+            bool success = token.transfer(stakeManagerContract,addVotingTokenCost);
+            if (!success) revert TransferFailed();
+        }
+
 
         votingCreatedByAddress[msg.sender].push(voteSession.id);
         emit VoteSessionCreated(voteSession.id, voteSession.title, voteSession.startTime, voteSession.endTime);
@@ -172,6 +180,11 @@ contract Voting {
                 revert UserNotVoterInThisVoteSession(_voteSessionId);
             }
         }
+        else{
+            if (token.balanceOf(msg.sender) < voteTokenCost) {
+                revert NotEnoungTokensToVote(token.balanceOf(msg.sender), voteTokenCost);
+            }
+        }
         if (block.timestamp >= voteSession.startTime && voteSession.status == StatusVoteSession.Created) {
             voteSession.status = StatusVoteSession.Active;
         }
@@ -179,6 +192,11 @@ contract Voting {
         voteSession.choices[_indChoice].countVotes++;
         voteSession.tempNumberVotes++;
         voteSession.voters[msg.sender].choice = voteSession.choices[_indChoice].title;
+
+        if (!voteSession.isPrivate) {
+            bool success = token.transfer(stakeManagerContract,voteTokenCost);
+            if (!success) revert TransferFailed();
+        }
 
         votingParticipatedByAddress[msg.sender].push(voteSession.id);
 
@@ -226,4 +244,14 @@ contract Voting {
         if (_voter == address(0)) revert VoterAddressCantBeZero();
         return votingParticipatedByAddress[_voter];
     }
+
+    function setAddVotingTokenCost(uint256 _addVotingTokenCost) external onlyOwner {
+        addVotingTokenCost = _addVotingTokenCost;
+    }
+
+    function setVoteTokenCost(uint256 _voteTokenCost) external onlyOwner {
+        voteTokenCost = _voteTokenCost;
+    }
+
+
 }
