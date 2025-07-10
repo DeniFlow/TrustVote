@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
+import {IERC20} from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract Voting {
 
     error NameVoteSessionCantBeEmpty();
@@ -19,6 +21,8 @@ contract Voting {
     error VoterAlreadyVoted(uint256 idVoteSession);
     error UserNotVoterInThisVoteSession(uint256 idVoteSession);
     error VoteSessionAlreadyEnded();
+    error TokenAddressCantBeZero();
+    error StakeManagerContractCantBeZero();
 
     event VoteSessionCreated(uint256 voteSessionId, string name, uint256 startTime, uint256 endTime);
     event Voted(uint256 voteSessionId, address voter, string choice);
@@ -75,6 +79,19 @@ contract Voting {
     mapping(uint256 => VoteSession) public voteSessions;
     mapping(address => uint256[]) public votingCreatedByAddress;
     mapping(address => uint256[]) public votingParticipatedByAddress;
+    IERC20 public token;
+    address public stakeManagerContract;
+    uint256 addVotingTokenCost;
+    uint256 voteTokenCost;
+
+    constructor(address _token, address _stakeManagerContract, uint256 _addVotingTokenCost, uint256 _voteTokenCost) {
+        if (_token == address(0)) revert TokenAddressCantBeZero();
+        if (_stakeManagerContract == address(0)) revert StakeManagerContractCantBeZero();
+        token = IERC20(_token);
+        stakeManagerContract = _stakeManagerContract;
+        addVotingTokenCost = _addVotingTokenCost;
+        voteTokenCost = _voteTokenCost;
+    }
 
     function addVoteSession(
         string calldata _title,

@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "node_modules/@openzeppelin/contracts/access/Ownable.sol";
 
 contract TokenDistributorForStakers is Ownable {
     error TokenInAddressCantBeZero();
     error TokenOutAddressCantBeZero();
-    error AmountCantBeZero(uint256 amount);
+    error AmountCantBeZero();
     error InsufficientBalance(uint256 balance, uint256 amount);
     error TransferFailed();
     error NotEnoughBalanceOnContract();
     error NotEnoughStakedTokens(uint256 amountStakedTokens, uint256 amount);
     error CooldownClaimNotReached(uint256 minTimeClaimTokens, uint256 timeLastClaimTokens);
-    error NotEnoughToClaim(uint256 minAmountTokensToClaim, uint256 amountTokensToClaim);
+    error NothingToClaim();
+    error AmountStakedTokensEqualZero();
 
     event Staked(address staker, uint256 amount, uint256 timestamp);
     event Unstaked(address staker, uint256 amount, uint256 timestamp);
@@ -23,72 +24,70 @@ contract TokenDistributorForStakers is Ownable {
     struct Staker {
         address addr;
         uint256 amount;
-        uint256 timestampStake;
         uint256 timestampLastClaim;
     }
 
     mapping(address => Staker) stakers;
 
-    ERC20 public tokenIn;
     ERC20 public tokenOut;
-    uint256 public constant MONEY_COFFICIENT = 10e6;
-    uint256 public constant TIME_COFFICIENT = 7 days;
+    uint256 public constant MONEY_COFFICIENT = 5 * 10**14;
 
-    constructor(address _tokenIn, address _tokenOut) Ownable(msg.sender) {
-        if (_tokenIn == address(0)) revert TokenInAddressCantBeZero();
+    constructor(address _tokenOut) Ownable(msg.sender) {
         if (_tokenOut == address(0)) revert TokenOutAddressCantBeZero();
-        tokenIn = ERC20(_tokenIn);
         tokenOut = ERC20(_tokenOut);
     }
 
-    function stake(uint256 _amount) public {
-        if (_amount == 0) revert AmountCantBeZero(_amount);
-        if (tokenIn.balanceOf(msg.sender) < _amount) revert InsufficientBalance(tokenIn.balanceOf(msg.sender), _amount);
-        stakers[msg.sender].amount += _amount;
-        if (stakers[msg.sender].timestampStake == 0) {
-            stakers[msg.sender].timestampStake = block.timestamp;
-        }
-        bool success = tokenIn.transfer(address(this), _amount);
-        if (!success) revert TransferFailed();
+    function stake() public payable {
+        if (msg.value == 0) revert AmountCantBeZero();
+        if (msg.sender.balance < msg.value) revert InsufficientBalance(msg.sender.balance, msg.value);
+        stakers[msg.sender].amount += msg.value;
 
-        emit Staked(msg.sender, _amount, block.timestamp);
+        emit Staked(msg.sender, msg.value, block.timestamp);
     }
 
-    function unstake(uint256 _amount) public {
-        if (_amount == 0) revert AmountCantBeZero(_amount);
-        if (stakers[msg.sender].amount < _amount) revert NotEnoughStakedTokens(stakers[msg.sender].amount, _amount);
-        if (tokenIn.balanceOf(address(this)) <= _amount) revert NotEnoughBalanceOnContract();
-        stakers[msg.sender].amount -= _amount;
-        if (stakers[msg.sender].amount == 0) {
-            stakers[msg.sender].timestampStake = 0;
-        }
-        bool success = tokenIn.transfer(msg.sender, _amount);
+    function unstake() public {
+        if (stakers[msg.sender].amount == 0) revert AmountStakedTokensEqualZero();
+        if (address(this).balance <= stakers[msg.sender].amount) revert NotEnoughBalanceOnContract();
+        uint256 amount = stakers[msg.sender].amount;
+        stakers[msg.sender].amount = 0;
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) revert TransferFailed();
-        emit Unstaked(msg.sender, _amount, block.timestamp);
+        emit Unstaked(msg.sender, amount, block.timestamp);
     }
 
     function getTokens() public returns (bool) {
-        if (block.timestamp < stakers[msg.sender].timestampLastClaim + COOLDOWN) {
-            revert CooldownClaimNotReached(
-                stakers[msg.sender].timestampLastClaim + COOLDOWN, stakers[msg.sender].timestampLastClaim
-            );
+        if (stakers[msg.sender].timestampLastClaim > 0) {
+            if (block.timestamp < stakers[msg.sender].timestampLastClaim + COOLDOWN) {
+                revert CooldownClaimNotReached(
+                    stakers[msg.sender].timestampLastClaim + COOLDOWN, stakers[msg.sender].timestampLastClaim
+                );
+            }
         }
-        uint256 amountTokensToClaim = stakers[msg.sender].amount / MONEY_COFFICIENT
-            + (block.timestamp - stakers[msg.sender].timestampLastClaim) / COOLDOWN;
-        if (amountTokensToClaim < tokenOut.decimals()) revert NotEnoughToClaim(tokenOut.decimals(),amountTokensToClaim);
+        uint256 amountTokensToClaim = stakers[msg.sender].amount / MONEY_COFFICIENT;
+        if (amountTokensToClaim == 0) {
+            revert NothingToClaim();
+        }
         if (tokenOut.balanceOf(address(this)) < amountTokensToClaim) revert NotEnoughBalanceOnContract();
         stakers[msg.sender].timestampLastClaim = block.timestamp;
-        bool success = tokenOut.transfer(msg.sender,amountTokensToClaim);
+        bool success = tokenOut.transfer(msg.sender, amountTokensToClaim);
         if (!success) revert TransferFailed();
         return true;
     }
 
     function withdraw(uint256 _amount) external onlyOwner {
-        if (_amount == 0) revert AmountCantBeZero(_amount);
-        if (tokenIn.balanceOf(address(this)) < _amount) {
-            revert InsufficientBalance(tokenIn.balanceOf(address(this)), _amount);
+        if (_amount == 0) revert AmountCantBeZero();
+        if (address(this).balance < _amount) {
+            revert InsufficientBalance(address(this).balance, _amount);
         }
-        bool success = tokenIn.transfer(owner(), _amount);
+        (bool success,) = payable(owner()).call{value: _amount}("");
         if (!success) revert TransferFailed();
+    }
+
+    function getContractBalanceTokenOut() external view onlyOwner returns (uint256) {
+        return tokenOut.balanceOf(address(this));
+    }
+
+    function getStaker() external view returns (address, uint256, uint256) {
+        return (stakers[msg.sender].addr, stakers[msg.sender].amount, stakers[msg.sender].timestampLastClaim);
     }
 }
